@@ -82,6 +82,7 @@ menu = Menu((
     MenuGroup((
         IntMenuItem("Channel", maximum=16, update=lambda value : midi.set_channel(int(value))),
         BooleanMenuItem("Thru", update=midi.set_thru),
+        BarMenuItem("Velocity", update=apply_value(synth.voices, Oscillator.set_velocity_amount)),
     ), "MIDI"),
     MenuGroup((
         BarMenuItem("Level", initial=1.0, update=audio.set_level),
@@ -97,6 +98,7 @@ menu = Menu((
         NumberMenuItem("BPM", step=1, initial=120, minimum=60, maximum=240, update=arpeggiator.set_bpm),
         BarMenuItem("Gate", step=0.025, initial=0.3, update=arpeggiator.set_gate),
         ListMenuItem(("Whole", "Half", "Quarter", "Dotted Quarter", "Eighth", "Triplet", "Sixteenth", "Thirty-Second"), "Steps", initial=2, update=lambda value : arpeggiator.set_steps(Arpeggiator.STEPS[value])),
+        BarMenuItem("Probability", step=1/32, initial=1.0, update=arpeggiator.set_probability),
     ), "Arp"),
     OscillatorMenuGroup(oscillators[0], "Osc1"),
     OscillatorMenuGroup(oscillators[1], "Osc2"),
