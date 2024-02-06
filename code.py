@@ -58,9 +58,9 @@ for i in range(VOICES):
         synth.add_voice(oscillators[j][i])
 
 # Menu and Patch System
-class PatchMenuItem(NumberMenuItem):
+class PatchMenuItem(IntMenuItem):
     def __init__(self, maximum:int=16, update:function=None):
-        NumberMenuItem.__init__(self, "Patch", step=1, initial=0, minimum=0, maximum=maximum, loop=True, update=update)
+        IntMenuItem.__init__(self, "Patch", maximum=maximum, loop=True, update=update)
     def set(self, value:float, force:bool=False):
         if force:
             NumberMenuItem.set(self, value)
@@ -80,7 +80,7 @@ def set_voice_type(value):
 menu = Menu((
     patch_item,
     MenuGroup((
-        IntMenuItem("Channel", step=1, maximum=16, update=lambda value : midi.set_channel(int(value))),
+        IntMenuItem("Channel", maximum=16, update=lambda value : midi.set_channel(int(value))),
         BooleanMenuItem("Thru", update=midi.set_thru),
     ), "MIDI"),
     MenuGroup((
