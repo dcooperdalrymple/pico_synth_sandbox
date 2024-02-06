@@ -133,7 +133,7 @@ selected = False
 def update_cursor_position(value=None):
     global selected
     if not value is None:
-        if value == selected:
+        if value == selected and not selected:
             return
         selected = value
     if not selected:
