@@ -148,6 +148,9 @@ def menu_reset():
     if menu.reset():
         menu.draw(display)
 
+def menu_previous_group():
+    update_cursor_position(False)
+    menu.previous(display, force=True)
 def menu_next_group():
     update_cursor_position(False)
     menu.next(display, force=True)
@@ -204,11 +207,12 @@ if len(encoders) == 1:
 
 else:
 
-    encoders[0].set_double_click(menu_next_group)
+    encoders[0].set_click(menu_previous_group)
     encoders[0].set_long_press(write_patch)
     encoders[0].set_increment(menu_increment_item)
     encoders[0].set_decrement(menu_decrement_item)
 
+    encoders[1].set_click(menu_next_group)
     encoders[1].set_long_press(menu_reset)
     encoders[1].set_increment(menu_increment_value)
     encoders[1].set_decrement(menu_decrement_value)
