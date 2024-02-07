@@ -2,9 +2,13 @@
 # 2024 Cooper Dalrymple - me@dcdalrymple.com
 # GPL v3 License
 
+# Setup Board
+from pico_synth_sandbox.board import get_board
+board = get_board()
+
+# Import Resources
 import time
 import pico_synth_sandbox.tasks
-from pico_synth_sandbox.board import get_board
 from pico_synth_sandbox.audio import get_audio_driver
 from pico_synth_sandbox.display import Display
 from pico_synth_sandbox.synth import Synth
@@ -14,7 +18,7 @@ from pico_synth_sandbox.arpeggiator import Arpeggiator
 from pico_synth_sandbox.midi import Midi
 from pico_synth_sandbox.display import Display
 from pico_synth_sandbox.encoder import Encoder
-from pico_synth_sandbox.menu import Menu, MenuGroup, OscillatorMenuGroup, NumberMenuItem, BooleanMenuItem, IntMenuItem, BarMenuItem, ListMenuItem
+from pico_synth_sandbox.menu import Menu, MenuGroup, OscillatorMenuGroup, NumberMenuItem, BooleanMenuItem, IntMenuItem, BarMenuItem, ListMenuItem, PatchMenuGroup, apply_value
 
 # Constants
 OSCILLATORS = 2
@@ -27,8 +31,6 @@ VOICE_MONO_ALL = 2
 voice_type = VOICE_POLY
 
 # Initialize hardware components
-board = get_board()
-
 audio = get_audio_driver(board)
 audio.mute()
 
@@ -57,18 +59,7 @@ for i in range(VOICES):
     for j in range(OSCILLATORS):
         synth.add_voice(oscillators[j][i])
 
-# Menu and Patch System
-class PatchMenuItem(IntMenuItem):
-    def __init__(self, maximum:int=16, update:function=None):
-        IntMenuItem.__init__(self, "Patch", maximum=maximum, loop=True, update=update)
-    def set(self, value:float, force:bool=False):
-        if force:
-            NumberMenuItem.set(self, value)
-    def enable(self, display:Display):
-        self._group = ""
-        NumberMenuItem.enable(self, display)
-patch_item = PatchMenuItem(MAX_PATCHES)
-
+# Menu
 def set_voice_type(value):
     global voice_type
     voice_type = value
@@ -77,8 +68,9 @@ def set_voice_type(value):
     else:
         keyboard.set_max_voices(1)
 
+patch_group = PatchMenuGroup("Patch", count=MAX_PATCHES)
 menu = Menu((
-    patch_item,
+    patch_group,
     MenuGroup((
         IntMenuItem("Channel", maximum=16, update=lambda value : midi.set_channel(int(value))),
         BooleanMenuItem("Thru", update=midi.set_thru),
@@ -103,17 +95,17 @@ menu = Menu((
     OscillatorMenuGroup(oscillators[0], "Osc1"),
     OscillatorMenuGroup(oscillators[1], "Osc2"),
 ), "synthesizer")
-default_patch = menu.get()
+default_patch = menu.get_data()
 
 def get_patch_file(value=None):
     if value is None:
-        value = patch_item.get()
+        value = patch_group.get()
     return "{:s}-{:d}".format(menu.get_group(), int(value))
 
 def read_patch(value=None):
     if not menu.read(get_patch_file(value)):
-        menu.set(default_patch)
-patch_item.set_update(read_patch)
+        menu.set_data(default_patch)
+patch_group.set_update(read_patch)
 
 def write_patch():
     audio.mute()
@@ -127,8 +119,10 @@ def write_patch():
     display.force_update()
     time.sleep(0.5)
     pico_synth_sandbox.tasks.resume()
-    menu.draw(display)
+    display.clear()
     menu.enable(display)
+    menu.draw(display)
+    display.force_update()
     audio.unmute()
 
 selected = False
@@ -268,7 +262,7 @@ def note_off(notenum):
 midi.set_note_off(note_off)
 
 def program_change(patch):
-    patch_item.set(patch, True)
+    patch_group.set(patch, True)
 midi.set_program_change(program_change)
 
 # Load Patch 0
