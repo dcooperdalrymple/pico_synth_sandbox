@@ -95,7 +95,6 @@ menu = Menu((
     OscillatorMenuGroup(oscillators[0], "Osc1"),
     OscillatorMenuGroup(oscillators[1], "Osc2"),
 ), "synthesizer")
-default_patch = menu.get_data()
 
 def get_patch_file(value=None):
     if value is None:
@@ -104,7 +103,7 @@ def get_patch_file(value=None):
 
 def read_patch(value=None):
     if not menu.read(get_patch_file(value)):
-        menu.set_data(default_patch)
+        menu.reset(True) # Full reset
 patch_group.set_update(read_patch)
 
 def write_patch():
