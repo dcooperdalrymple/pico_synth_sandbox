@@ -162,3 +162,4 @@ cython_debug/
 # Extras
 pico_synth_sandbox/
 .vscode
+*.uf2

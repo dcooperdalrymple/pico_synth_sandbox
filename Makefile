@@ -3,7 +3,11 @@ ifeq ($(wildcard $(DEVICE).),)
 	DEVICE := /run/media/$(USER)/CIRCUITPY/
 endif
 
+NAME = $(shell basename $(CURDIR))
+
 SRCS := ./code.py
+
+PICOTOOL = picotool
 
 all: upload
 
@@ -12,3 +16,6 @@ upload: $(SRCS)
 		echo $${file} "=>" $(DEVICE)$${file} ; \
 		cp $${file} $(DEVICE)$${file} ; \
 	done
+
+package:
+	sudo $(PICOTOOL) save --all $(NAME).uf2
