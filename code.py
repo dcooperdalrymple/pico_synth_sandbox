@@ -201,13 +201,30 @@ if len(encoders) == 1:
 
 else:
 
+    def enter_bootloader():
+        display.clear()
+        display.write("Bootloader Mode", (0,0))
+        display.write("RPI-RP2 Drive", (0,1))
+        display.force_update()
+        board.bootloader()
+    def encoder0_long_press():
+        if encoders[1].is_pressed():
+            enter_bootloader()
+        else:
+            write_patch()
+    def encoder1_long_press():
+        if encoders[0].is_pressed():
+            enter_bootloader()
+        else:
+            menu_reset()
+
     encoders[0].set_click(menu_previous_group)
-    encoders[0].set_long_press(write_patch)
+    encoders[0].set_long_press(encoder0_long_press)
     encoders[0].set_increment(menu_increment_item)
     encoders[0].set_decrement(menu_decrement_item)
 
     encoders[1].set_click(menu_next_group)
-    encoders[1].set_long_press(menu_reset)
+    encoders[1].set_long_press(encoder1_long_press)
     encoders[1].set_increment(menu_increment_value)
     encoders[1].set_decrement(menu_decrement_value)
 
