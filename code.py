@@ -118,11 +118,11 @@ def write_patch():
     display.write("Complete!")
     display.force_update()
     time.sleep(0.5)
-    pico_synth_sandbox.tasks.resume()
     display.clear()
     menu.enable(display)
     menu.draw(display)
     display.force_update()
+    pico_synth_sandbox.tasks.resume()
     audio.unmute()
 
 selected = False
