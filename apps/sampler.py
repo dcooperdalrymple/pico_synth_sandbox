@@ -28,8 +28,13 @@ import hardware
 import menu
 import settings
 
-DIR = "/samples"
 VOICES = 12 if board.board_id == "raspberry_pi_pico2" else 6
+
+DIR = "/sd/samples"
+try:
+    os.stat(DIR)
+except OSError:
+    DIR = "/samples"
 
 hardware.init()
 

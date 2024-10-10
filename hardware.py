@@ -13,6 +13,8 @@ import busio
 import adafruit_midi
 import usb_midi
 import microcontroller
+import sdcardio
+import storage
 
 CHANNELS = 2
 BITS = 16
@@ -33,6 +35,7 @@ encoder_pins = (
     (board.GP12, board.GP11),
     (board.GP17, board.GP16),
 )
+spi_clock, spi_mosi, spi_miso, spi_cs = board.GP2, board.GP3, board.GP0, board.GP1
 
 if board.board_id == "raspberry_pi_pico":
     microcontroller.cpu.frequency = 250000000
@@ -51,9 +54,12 @@ lcd = None
 button_gpio = None
 buttons = None
 encoders = None
+spi = None
+sdcard = None
+sdvfs = None
 
 def init() -> None:
-    global led, audio, midi_usb, uart, midi_uart, ttp, lcd, lcd_gpio, buttons, button_gpio, encoders
+    global led, audio, midi_usb, uart, midi_uart, ttp, lcd, lcd_gpio, buttons, button_gpio, encoders, spi, sdcard, sdvfs
 
     # Status LED
     led = digitalio.DigitalInOut(led_pin)
@@ -123,8 +129,19 @@ def init() -> None:
     buttons = tuple([adafruit_debouncer.Debouncer(gpio) for gpio in button_gpio])
     encoders = tuple([rotaryio.IncrementalEncoder(pins[0], pins[1]) for pins in encoder_pins])
 
+    # SD Card SPI & Storage
+    spi = busio.SPI(
+        clock=spi_clock,
+        MOSI=spi_mosi,
+        MISO=spi_miso
+    )
+    sdcard = sdcardio.SDCard(spi, spi_cs)
+    sdvfs = storage.VfsFat(sdcard)
+    storage.mount(sdvfs, "/sd")
+
+
 def deinit() -> None:
-    global led, audio, midi_usb, uart, midi_uart, ttp, lcd, lcd_gpio, buttons, button_gpio, encoders
+    global led, audio, midi_usb, uart, midi_uart, ttp, lcd, lcd_gpio, buttons, button_gpio, encoders, spi, sdcard, sdvfs
 
     if led is not None:
         led.deinit()
@@ -162,3 +179,15 @@ def deinit() -> None:
         for encoder in encoders:
             encoder.deinit()
         encoders = None
+
+    if sdvfs is not None:
+        storage.umount(sdvfs)
+        sdvfs = None
+
+    if sdcard is not None:
+        sdcard.deinit()
+        sdcard = None
+    
+    if spi is not None:
+        spi.deinit()
+        spi = None
