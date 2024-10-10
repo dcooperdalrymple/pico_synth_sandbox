@@ -1,0 +1,9 @@
+Adafruit-CircuitPython-Debouncer
+Adafruit-CircuitPython-CharacterLCD
+Adafruit-CircuitPython-Midi
+
+CircuitPython-TTP229
+CircuitPython-SynthMenu
+CircuitPython-SynthKeyboard
+CircuitPython-SynthWaveform
+CircuitPython-SynthVoice

@@ -1,295 +1,46 @@
-# pico_synth_sandbox-synthesizer
-# 2024 Cooper Dalrymple - me@dcdalrymple.com
-# GPL v3 License
-
-# Setup Board
-from pico_synth_sandbox.board import get_board
-board = get_board()
-
-# Import Resources
+import os
 import time
-import pico_synth_sandbox.tasks
-from pico_synth_sandbox.audio import get_audio_driver
-from pico_synth_sandbox.display import Display
-from pico_synth_sandbox.synth import Synth
-from pico_synth_sandbox.voice.oscillator import Oscillator
-from pico_synth_sandbox.keyboard import get_keyboard_driver
-from pico_synth_sandbox.arpeggiator import Arpeggiator
-from pico_synth_sandbox.midi import Midi
-from pico_synth_sandbox.display import Display
-from pico_synth_sandbox.encoder import Encoder
-from pico_synth_sandbox.menu import Menu, MenuGroup, OscillatorMenuGroup, NumberMenuItem, BooleanMenuItem, IntMenuItem, BarMenuItem, ListMenuItem, PatchMenuGroup, apply_value
+import microcontroller
 
-# Constants
-OSCILLATORS = 2
-VOICES = 4
-MAX_PATCHES = 16
+import synthmenu
+import synthmenu.character_lcd
 
-VOICE_POLY = 0
-VOICE_MONO = 1
-VOICE_MONO_ALL = 2
-voice_type = VOICE_POLY
+import hardware
+import menu
+import settings
 
-# Initialize hardware components
-audio = get_audio_driver(board)
-audio.mute()
+hardware.init()
 
-display = Display(board)
-display.clear()
-display.hide_cursor()
-display.write("PicoSynthSandbox", (0,0))
-display.write("Loading...", (0,1))
-display.force_update()
+def enter_bootloader() -> None:
+    menu.write_message("Loading...")
+    microcontroller.on_next_reset(microcontroller.RunMode.BOOTLOADER)
+    microcontroller.reset()
 
-keyboard = get_keyboard_driver(board, max_voices=VOICES)
-arpeggiator = Arpeggiator()
-keyboard.set_arpeggiator(arpeggiator)
+def reset_device() -> None:
+    menu.write_message("Resetting...")
+    microcontroller.on_next_reset(microcontroller.RunMode.NORMAL)
+    microcontroller.reset()
 
-midi = Midi(board)
+files = tuple(filter(lambda filename: filename.endswith(".py"), os.listdir(menu.APP_DIR)))
 
-if board.num_encoders() == 1:
-    encoders = (Encoder(board, 0),)
-elif board.num_encoders() > 1:
-    encoders = (Encoder(board, 0), Encoder(board, 1))
+apps = []
+for filename in files:
+    title = filename[:-3]
+    title = title.lower().replace('_', ' ').split()
+    for i in range(len(title)):
+        title[i] = title[i][0].upper() + title[i][1:]
+    title = " ".join(title)
+    apps.append(synthmenu.Action(title, lambda filename=filename: menu.load_app(filename)))
 
-# Initialize Synthesizer
-synth = Synth(audio)
-oscillators = (tuple([Oscillator() for i in range(VOICES)]), tuple([Oscillator() for i in range(VOICES)]))
-for i in range(VOICES):
-    for j in range(OSCILLATORS):
-        synth.add_voice(oscillators[j][i])
+lcd_menu = synthmenu.character_lcd.Menu(hardware.lcd, hardware.COLUMNS, hardware.ROWS, "Launcher", (
+    synthmenu.Group("Apps", tuple(apps)),
+    settings.group(),
+    synthmenu.Group("Tools", (
+        synthmenu.Action("Bootloader", enter_bootloader),
+        synthmenu.Action("Reset", reset_device),
+    ))
+))
 
-# Menu
-def set_voice_type(value):
-    global voice_type
-    voice_type = value
-    if voice_type == VOICE_POLY:
-        keyboard.set_max_voices(VOICES)
-    else:
-        keyboard.set_max_voices(1)
-
-patch_group = PatchMenuGroup("Patch", count=MAX_PATCHES)
-menu = Menu((
-    patch_group,
-    MenuGroup((
-        IntMenuItem("Channel", maximum=16, update=lambda value : midi.set_channel(int(value))),
-        BooleanMenuItem("Thru", update=midi.set_thru),
-        BarMenuItem("Velocity", update=apply_value(synth.voices, Oscillator.set_velocity_amount)),
-    ), "MIDI"),
-    MenuGroup((
-        BarMenuItem("Level", initial=1.0, update=audio.set_level),
-    ), "Audio"),
-    MenuGroup((
-        ListMenuItem(("High", "Low", "Last"), "Priority", update=keyboard.set_mode),
-        ListMenuItem(("Polyphonic", "Monophonic", "Monophonic x{:d}".format(VOICES)), "Voice", initial=voice_type, update=set_voice_type),
-    ), "Keys"),
-    MenuGroup((
-        BooleanMenuItem("Enabled", update=arpeggiator.set_enabled),
-        ListMenuItem(("Up", "Down", "Up Down", "Down Up", "Played", "Random"), "Mode", update=arpeggiator.set_mode),
-        NumberMenuItem("Octaves", step=1, initial=0, minimum=-3, maximum=3, update=arpeggiator.set_octaves),
-        NumberMenuItem("BPM", step=1, initial=120, minimum=60, maximum=240, update=arpeggiator.set_bpm),
-        BarMenuItem("Gate", step=0.025, initial=0.3, update=arpeggiator.set_gate),
-        ListMenuItem(("Whole", "Half", "Quarter", "Dotted Quarter", "Eighth", "Triplet", "Sixteenth", "Thirty-Second"), "Steps", initial=2, update=lambda value : arpeggiator.set_steps(Arpeggiator.STEPS[value])),
-        BarMenuItem("Probability", step=1/32, initial=1.0, update=arpeggiator.set_probability),
-    ), "Arp"),
-    OscillatorMenuGroup(oscillators[0], "Osc1"),
-    OscillatorMenuGroup(oscillators[1], "Osc2"),
-), "synthesizer")
-
-def get_patch_file(value=None):
-    if value is None:
-        value = patch_group.get()
-    return "{:s}-{:d}".format(menu.get_group(), int(value))
-
-def read_patch(value=None):
-    if not menu.read(get_patch_file(value)):
-        menu.reset(True) # Full reset
-patch_group.set_update(read_patch)
-
-def write_patch():
-    audio.mute()
-    pico_synth_sandbox.tasks.pause()
-    display.clear()
-    display.write("Saving...")
-    display.force_update()
-    menu.write(get_patch_file())
-    display.clear()
-    display.write("Complete!")
-    display.force_update()
-    time.sleep(0.5)
-    display.clear()
-    menu.enable(display)
-    menu.draw(display)
-    display.force_update()
-    pico_synth_sandbox.tasks.resume()
-    audio.unmute()
-
-selected = False
-def update_cursor_position(value=None):
-    global selected
-    if not value is None:
-        if value == selected and not selected:
-            return
-        selected = value
-    if not selected:
-        display.set_cursor_position(0,0)
-    else:
-        display.set_cursor_position(menu.get_cursor_position())
-
-def menu_reset():
-    update_cursor_position(True)
-    if menu.reset():
-        menu.draw(display)
-
-def menu_previous_group():
-    update_cursor_position(False)
-    menu.previous(display, force=True)
-def menu_next_group():
-    update_cursor_position(False)
-    menu.next(display, force=True)
-
-def menu_increment_value():
-    update_cursor_position(True)
-    if menu.increment():
-        menu.draw(display)
-def menu_decrement_value():
-    update_cursor_position(True)
-    if menu.decrement():
-        menu.draw(display)
-
-def menu_increment_item():
-    update_cursor_position(False)
-    menu.next(display)
-def menu_decrement_item():
-    update_cursor_position(False)
-    menu.previous(display)
-
-if len(encoders) == 1:
-
-    def encoder_toggle():
-        global selected
-        selected = not selected
-        update_cursor_position()
-    encoders[0].set_click(encoder_toggle)
-
-    def encoder_double_click():
-        global selected
-        if selected:
-            menu_reset()
-        else:
-            menu_next_group()
-    encoders[0].set_double_click(encoder_double_click)
-
-    def encoder_increment():
-        global selected
-        if selected:
-            menu_increment_value()
-        else:
-            menu_increment_item()
-    encoders[0].set_increment(encoder_increment)
-
-    def encoder_decrement():
-        global selected
-        if selected:
-            menu_decrement_value()
-        else:
-            menu_decrement_item()
-    encoders[0].set_decrement(encoder_decrement)
-    
-    encoders[0].set_long_press(write_patch)
-
-else:
-
-    def enter_bootloader():
-        display.clear()
-        display.write("Bootloader Mode", (0,0))
-        display.write("RPI-RP2 Drive", (0,1))
-        display.force_update()
-        board.bootloader()
-    def encoder0_long_press():
-        if encoders[1].is_pressed():
-            enter_bootloader()
-        else:
-            write_patch()
-    def encoder1_long_press():
-        if encoders[0].is_pressed():
-            enter_bootloader()
-        else:
-            menu_reset()
-
-    encoders[0].set_click(menu_previous_group)
-    encoders[0].set_long_press(encoder0_long_press)
-    encoders[0].set_increment(menu_increment_item)
-    encoders[0].set_decrement(menu_decrement_item)
-
-    encoders[1].set_click(menu_next_group)
-    encoders[1].set_long_press(encoder1_long_press)
-    encoders[1].set_increment(menu_increment_value)
-    encoders[1].set_decrement(menu_decrement_value)
-
-# Keyboard Setup
-def voice_press(index, notenum, velocity, keynum=None):
-    global voice_type
-    if voice_type == VOICE_MONO:
-        for i in range(OSCILLATORS):
-            synth.press(i, notenum, velocity)
-    elif voice_type == VOICE_MONO_ALL:
-        for voice in synth.voices:
-            synth.press(voice, notenum, velocity)
-    else: # voice_type == VOICE_POLY:
-        for i in range(OSCILLATORS):
-            synth.press(index + i, notenum, velocity)
-keyboard.set_voice_press(voice_press)
-
-def voice_release(index, notenum, keynum=None):
-    if (voice_type == VOICE_MONO or voice_type == VOICE_MONO_ALL) and not keyboard.has_notes():
-        synth.release()
-    else: # voice_type == VOICE_POLY:
-        for i in range(OSCILLATORS):
-            synth.release(index + i)
-keyboard.set_voice_release(voice_release)
-
-def key_press(keynum, notenum, velocity):
-    midi.send_note_on(notenum, velocity)
-keyboard.set_key_press(key_press)
-
-def key_release(keynum, notenum):
-    midi.send_note_off(notenum)
-keyboard.set_key_release(key_release)
-
-# Midi Implementation
-def control_change(control, value):
-    if control == 64: # Sustain
-        keyboard.set_sustain(value)
-midi.set_control_change(control_change)
-
-def pitch_bend(value):
-    for voice in synth.voices:
-        voice.set_pitch_bend(value)
-midi.set_pitch_bend(pitch_bend)
-
-def note_on(notenum, velocity):
-    # Add to keyboard for processing
-    keyboard.append(notenum, velocity)
-midi.set_note_on(note_on)
-
-def note_off(notenum):
-    keyboard.remove(notenum)
-midi.set_note_off(note_off)
-
-def program_change(patch):
-    patch_group.set(patch, True)
-midi.set_program_change(program_change)
-
-# Load Patch 0
-read_patch()
-
-display.clear()
-display.set_cursor_blink(True)
-update_cursor_position()
-menu.draw(display)
-menu.enable(display)
-
-audio.unmute()
-
-pico_synth_sandbox.tasks.run()
+while True:
+    menu.handle_controls(lcd_menu)
+    time.sleep(hardware.TASK_SLEEP)
