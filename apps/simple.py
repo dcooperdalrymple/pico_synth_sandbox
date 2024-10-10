@@ -39,10 +39,6 @@ else:
     DELAY_LENGTH = 250
     CHORUS_DELAY = 50
 
-hardware.CHANNELS=1
-hardware.SAMPLE_RATE=22050
-hardware.BUFFER_SIZE=4096
-
 hardware.init()
 
 ## Audio Output + Synthesizer
