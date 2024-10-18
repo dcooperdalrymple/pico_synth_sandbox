@@ -50,7 +50,14 @@ def write_message(msg:str, delay:bool|float = False) -> None:
 def load_patch(menu:synthmenu.Menu, item:synthmenu.Item, value:int, prepend:str = 'patch') -> bool:
     on_update = item.on_update
     item.on_update = None
-    result = menu.read("/presets/{:s}-{:d}.json".format(prepend, value))
+    path = "/presets/{:s}-{:d}.json".format(prepend, value)
+    try:
+        os.stat("/sd/presets")
+    except OSError:
+        pass
+    else:
+        path = "/sd" + path
+    result = menu.read(path)
     if not result:
         menu.reset(True)
     menu.do_update()
@@ -60,7 +67,14 @@ def load_patch(menu:synthmenu.Menu, item:synthmenu.Item, value:int, prepend:str 
 
 def save_patch(menu:synthmenu.Menu, value:int, prepend:str = 'patch') -> bool:
     write_message("Saving...")
-    if (result := menu.write("/presets/{:s}-{:d}.json".format(prepend, value))):
+    path = "/presets/{:s}-{:d}.json".format(prepend, value)
+    try:
+        os.stat("/sd/presets")
+    except OSError:
+        pass
+    else:
+        path = "/sd" + path
+    if (result := menu.write(path)):
         write_message("Complete!", True)
     else:
         write_message("Failed!", True)

@@ -12,9 +12,8 @@ storage.remount("/", False, disable_concurrent_write_protection=True)
 usb_hid.disable()
 usb_cdc.enable(console=True, data=False)
 
-dirs = ("/apps", "/presets", "/samples", "/songs")
-for dir in dirs:
+for dir in ("/apps", "/presets", "/samples", "/songs"):
     try:
         os.stat(dir)
-    except:
+    except OSError:
         os.mkdir(dir)

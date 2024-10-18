@@ -25,13 +25,11 @@ import hardware
 import menu
 import os
 
-DIR = "/sd"
+DIR = "/sd/songs"
 try:
     os.stat(DIR)
 except OSError:
     DIR = "/songs"
-
-hardware.init()
 
 ## Audio Output + Synthesizer
 
@@ -47,6 +45,10 @@ for i in range(len(songs)):
 
 # Remove duplicates and sort alphabetically
 songs = list(sorted(set(songs)))
+
+if not songs:
+    menu.write_message("No songs!", True)
+    menu.load_launcher()
 
 ## Playback Controller
 

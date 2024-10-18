@@ -27,6 +27,8 @@ import hardware
 import menu
 import settings
 
+hardware.init()
+
 try:
     import audiodelays
 except ImportError:
@@ -40,8 +42,6 @@ else:
 
 VOICES = 6 if board.board_id == "raspberry_pi_pico2" else 4
 OSCILLATORS = 2
-
-hardware.init()
 
 ## Audio Output + Synthesizer
 

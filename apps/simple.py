@@ -27,6 +27,8 @@ import hardware
 import menu
 import settings
 
+hardware.init()
+
 VOICES = 6 if board.board_id == "raspberry_pi_pico2" else 4
 
 try:
@@ -38,8 +40,6 @@ else:
     EFFECTS_BUFFER = 1024
     DELAY_LENGTH = 250
     CHORUS_DELAY = 50
-
-hardware.init()
 
 ## Audio Output + Synthesizer
 

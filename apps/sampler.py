@@ -28,6 +28,8 @@ import hardware
 import menu
 import settings
 
+hardware.init()
+
 VOICES = 12 if board.board_id == "raspberry_pi_pico2" else 6
 
 DIR = "/sd/samples"
@@ -35,8 +37,6 @@ try:
     os.stat(DIR)
 except OSError:
     DIR = "/samples"
-
-hardware.init()
 
 ## Audio Output + Synthesizer
 
@@ -165,10 +165,7 @@ async def touch_task() -> None:
 
 sample_files = list(filter(lambda filename: filename.endswith(".wav"), os.listdir(DIR)))
 if not sample_files:
-    hardware.lcd.cursor_position(0, 1)
-    hardware.lcd.message = "No samples!"
-    time.sleep(2)
-    # Reset back to launcher
+    menu.write_message("No samples!", True)
     menu.load_launcher()
 
 def load_sample(index:int) -> None:

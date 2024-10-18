@@ -15,6 +15,7 @@ import usb_midi
 import microcontroller
 import sdcardio
 import storage
+import os
 
 CHANNELS = 2
 BITS = 16
@@ -130,15 +131,23 @@ def init() -> None:
     encoders = tuple([rotaryio.IncrementalEncoder(pins[0], pins[1]) for pins in encoder_pins])
 
     # SD Card SPI & Storage
-    spi = busio.SPI(
-        clock=spi_clock,
-        MOSI=spi_mosi,
-        MISO=spi_miso
-    )
-    sdcard = sdcardio.SDCard(spi, spi_cs)
-    sdvfs = storage.VfsFat(sdcard)
-    storage.mount(sdvfs, "/sd")
-
+    try:
+        spi = busio.SPI(
+            clock=spi_clock,
+            MOSI=spi_mosi,
+            MISO=spi_miso
+        )
+        sdcard = sdcardio.SDCard(spi, spi_cs)
+        sdvfs = storage.VfsFat(sdcard)
+        storage.mount(sdvfs, "/sd")
+    except OSError:
+        pass
+    else:
+        for dir in ("/presets", "/samples", "/songs"):
+            try:
+                os.stat("/sd" + dir)
+            except OSError:
+                os.mkdir("/sd" + dir)
 
 def deinit() -> None:
     global led, audio, midi_usb, uart, midi_uart, ttp, lcd, lcd_gpio, buttons, button_gpio, encoders, spi, sdcard, sdvfs
