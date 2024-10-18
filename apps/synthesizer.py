@@ -230,7 +230,7 @@ async def touch_task() -> None:
 
 def copy_oscillator_attrs(index:int = 0) -> None:
     menu.write_message("Copying...")
-    menu_index = lcd_menu.find("Osc 1")
+    menu_index, menu_item = lcd_menu.find("Osc 1")
     if menu_index is None:
         menu.write_message("Failed to Copy!", True)
     else:
@@ -482,7 +482,7 @@ lcd_menu = synthmenu.character_lcd.Menu(hardware.lcd, hardware.COLUMNS, hardware
         )),
     ] if EFFECTS else []) + [
         synthmenu.Group("Tools", tuple([
-            synthmenu.Action("Copy Osc 1", lambda i=i: copy_oscillator_attrs(i)) for i in range(OSCILLATORS)
+            synthmenu.Action("Copy Osc {:d}".format(i+1), lambda i=i: copy_oscillator_attrs(i)) for i in range(OSCILLATORS)
         ])),
         synthmenu.Action("Exit", menu.load_launcher),
     ]
