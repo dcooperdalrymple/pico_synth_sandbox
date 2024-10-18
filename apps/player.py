@@ -25,6 +25,12 @@ import hardware
 import menu
 import os
 
+# Larger buffer needed to prevent stutters in audio when reading from SD
+hardware.BUFFER_SIZE = 32768
+hardware.TASK_SLEEP = 0.1 #?
+
+hardware.init()
+
 DIR = "/sd/songs"
 try:
     os.stat(DIR)
@@ -56,7 +62,8 @@ class Player():
     def __init__(self):
         self._midi_file = None
         self._midi_track = None
-        self._wav_file = None
+        self._audio_file = None
+        self._wave = None
         self._mixer = None
         self._level = 1.0
         self._start_time = None
@@ -68,57 +75,65 @@ class Player():
 
         # Stop any currently playing tracks
         self.stop()
+        hardware.audio.stop()
+
+        # Deinitialize objects
+        if self._wave:
+            self._wave.deinit()
+            self._wave = None
+
+        if self._audio_file:
+            self._audio_file.close()
+            self._audio_file = None
+
+        if self._mixer:
+            self._mixer.deinit()
+            self._mixer = None
 
         # Load Midi
+        midi_path = "{:s}/{:s}.mid".format(DIR, name)
         try:
-            midi_file = "{:s}/{:s}.mid".format(DIR, name)
-            os.stat(midi_file)
+            os.stat(midi_path)
         except OSError:
-            midi_file = None
+            midi_path = None
         else:
-            self._midi_file = umidiparser.MidiFile(midi_file)
+            self._midi_file = umidiparser.MidiFile(midi_path)
 
         # Load Audio
+        audio_path = "{:s}/{:s}.wav".format(DIR, name)
         try:
-            audio_file = "{:s}/{:s}.wav".format(DIR, name)
-            os.stat(audio_file)
+            os.stat(audio_path)
         except OSError:
-            audio_file = None
+            audio_path = None
         else:
-            self._wav_file = audiocore.WaveFile(audio_file)
+            self._audio_file = open(audio_path, "rb")
+            self._wave = audiocore.WaveFile(self._audio_file)
             self._mixer = audiomixer.Mixer(
                 voice_count=1,
-                channel_count=self._wav_file.channel_count,
-                sample_rate=self._wav_file.sample_rate,
+                channel_count=self._wave.channel_count,
+                sample_rate=self._wave.sample_rate,
                 buffer_size=hardware.BUFFER_SIZE,
-                bits_per_sample=self._wav_file.bits_per_sample,
+                bits_per_sample=self._wave.bits_per_sample,
                 samples_signed=True,
             )
-            self._mixer.voice[0].level = self.level
             hardware.audio.play(self._mixer)
+            self._mixer.voice[0].level = self.level
 
     def play(self) -> None:
-        if self._mixer:
-            self._mixer.voice[0].play(self._wav_file)
+        if self._mixer and self._wave:
+            self._mixer.play(self._wave)
 
         if self._midi_file:
             self._midi_track = self._midi_file.play(sleep=False)
+            self._midi_playing = True
 
         self._start_time = time.monotonic_ns() // 1000
 
     def stop(self) -> None:
-        hardware.audio.stop()
-        self._start_time = None
-
-        if self._wav_file:
-            self._wav_file.deinit()
-            self._wav_file = None
-        
         if self._mixer:
-            self._mixer.deinit()
-            self._mixer = None
-        
+            self._mixer.stop_voice()
         self._midi_playing = False
+        self._start_time = None
 
     def toggle(self) -> None:
         if self.playing:
@@ -137,8 +152,16 @@ class Player():
             self._mixer.voice[0].level = value
 
     @property
+    def audio_playing(self) -> bool:
+        return self._mixer and self._mixer.playing
+    
+    @property
+    def midi_playing(self) -> bool:
+        return self._midi_playing
+
+    @property
     def playing(self) -> bool:
-        return self._start_time and ((self._mixer and self._mixer.voice[0].playing) or self._midi_playing)
+        return self.audio_playing or self.midi_playing
 
     def _send(self, msg:MIDIMessage) -> None:
         hardware.midi_usb.send(msg)
@@ -146,7 +169,7 @@ class Player():
         
     async def update(self) -> None:
         while True:
-            if self._start_time and self._midi_track:
+            if self._midi_playing and self._start_time and self._midi_track:
                 midi_time = 0
                 for event in self._midi_track:
                     midi_time += event.delta_us
@@ -159,26 +182,23 @@ class Player():
                         break
                     
                     if event.status == umidiparser.NOTE_ON:
-                        self._send(NoteOn(event.note, event.velocity, event.channel))
+                        self._send(NoteOn(event.note, event.velocity, channel=event.channel))
                     elif event.status == umidiparser.NOTE_OFF:
-                        self._send(NoteOff(event.note, 0, event.channel))
+                        self._send(NoteOff(event.note, 0, channel=event.channel))
                     elif event.status == umidiparser.POLYTOUCH:
-                        self._send(PolyphonicKeyPressure(event.note, event.value, event.channel))
+                        self._send(PolyphonicKeyPressure(event.note, event.value, channel=event.channel))
                     elif event.status == umidiparser.CONTROL_CHANGE:
-                        self._send(ControlChange(event.control, event.value, event.channel))
+                        self._send(ControlChange(event.control, event.value, channel=event.channel))
                     elif event.status == umidiparser.PROGRAM_CHANGE:
-                        self._send(ProgramChange(event.program, event.channel))
+                        self._send(ProgramChange(event.program, channel=event.channel))
                     elif event.status == umidiparser.AFTERTOUCH:
-                        self._send(ChannelPressure(event.value, event.channel))
-                    elif event.state == umidiparser.PITCHWHEEL:
-                        self._send(PitchBend(event.pitch, event.channel))
+                        self._send(ChannelPressure(event.value, channel=event.channel))
+                    elif event.status == umidiparser.PITCHWHEEL:
+                        self._send(PitchBend(event.pitch, channel=event.channel))
                     # Ignore unrecognized events
 
                 self._midi_playing = False
 
-            if self._start_time and self._mixer and not self._mixer.voice[0].playing:
-                self.stop()
-            
             await asyncio.sleep(hardware.TASK_SLEEP)
 
 player = Player()
