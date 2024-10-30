@@ -320,6 +320,13 @@ lcd_menu = synthmenu.character_lcd.Menu(hardware.lcd, hardware.COLUMNS, hardware
                     append="hz",
                     on_update=lambda value, item: menu.set_attribute(voices, 'filter_rate', value),
                 ),
+                synthmenu.Time(
+                    "Delay",
+                    step=0.01,
+                    minimum=0.0,
+                    maximum=10.0,
+                    on_update=lambda value, item: menu.set_attribute(voices, 'filter_delay', value),
+                ),
             )),
         )),
         synthmenu.Group("Mod", (
@@ -335,6 +342,13 @@ lcd_menu = synthmenu.character_lcd.Menu(hardware.lcd, hardware.COLUMNS, hardware
                     smoothing=2.0,
                     append="hz",
                     on_update=lambda value, item: menu.set_attribute(voices, 'tremolo_rate', value),
+                ),
+                synthmenu.Time(
+                    title="Delay",
+                    step=0.01,
+                    minimum=0.0,
+                    maximum=10.0,
+                    on_update=lambda value, item: menu.set_attribute(voices, 'tremolo_delay', value),
                 ),
             )),
             synthmenu.Group("Vibrato", (
@@ -356,6 +370,13 @@ lcd_menu = synthmenu.character_lcd.Menu(hardware.lcd, hardware.COLUMNS, hardware
                     append="hz",
                     on_update=lambda value, item: menu.set_attribute(voices, 'vibrato_rate', value),
                 ),
+                synthmenu.Time(
+                    title="Delay",
+                    step=0.01,
+                    minimum=0.0,
+                    maximum=10.0,
+                    on_update=lambda value, item: menu.set_attribute(voices, 'vibrato_delay', value),
+                ),
             )),
             synthmenu.Group("Pan", (
                 synthmenu.Percentage(
@@ -369,6 +390,13 @@ lcd_menu = synthmenu.character_lcd.Menu(hardware.lcd, hardware.COLUMNS, hardware
                     smoothing=2.0,
                     append="hz",
                     on_update=lambda value, item: menu.set_attribute(voices, 'pan_rate', value),
+                ),
+                synthmenu.Time(
+                    title="Delay",
+                    step=0.01,
+                    minimum=0.0,
+                    maximum=10.0,
+                    on_update=lambda value, item: menu.set_attribute(voices, 'pan_delay', value),
                 ),
             )),
         )),
